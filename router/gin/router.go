@@ -138,6 +138,8 @@ func (r ginRouter) registerKrakendEndpoint(rg *gin.RouterGroup, method string, e
 	}
 
 	switch method {
+	case "ANY":
+		rg.Any(path, h)
 	case http.MethodGet:
 		rg.GET(path, h)
 	case http.MethodPost:

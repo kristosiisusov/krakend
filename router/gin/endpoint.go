@@ -28,7 +28,7 @@ func EndpointHandler(configuration *config.EndpointConfig, proxy proxy.Proxy) gi
 func CustomErrorEndpointHandler(configuration *config.EndpointConfig, prxy proxy.Proxy, errF router.ToHTTPError) gin.HandlerFunc {
 	cacheControlHeaderValue := fmt.Sprintf("public, max-age=%d", int(configuration.CacheTTL.Seconds()))
 	isCacheEnabled := configuration.CacheTTL.Seconds() != 0
-	requestGenerator := NewRequest(configuration.HeadersToPass)
+	requestGenerator := NewRequest(configuration)
 	render := getRender(configuration)
 
 	return func(c *gin.Context) {
@@ -85,7 +85,8 @@ func CustomErrorEndpointHandler(configuration *config.EndpointConfig, prxy proxy
 }
 
 // NewRequest gets a request from the current gin context and the received query string
-func NewRequest(headersToSend []string) func(*gin.Context, []string) *proxy.Request {
+func NewRequest(configuration *config.EndpointConfig) func(*gin.Context, []string) *proxy.Request {
+	var headersToSend = configuration.HeadersToPass
 	if len(headersToSend) == 0 {
 		headersToSend = router.HeadersToSend
 	}
@@ -120,23 +121,23 @@ func NewRequest(headersToSend []string) func(*gin.Context, []string) *proxy.Requ
 			headers["X-Forwarded-Via"] = router.UserAgentHeaderValue
 		}
 
-		query := make(map[string][]string, len(queryString))
-		queryValues := c.Request.URL.Query()
-		for i := range queryString {
-			if queryString[i] == requestParamsAsterisk {
-				query = c.Request.URL.Query()
-
-				break
-			}
-
-			if v, ok := queryValues[queryString[i]]; ok && len(v) > 0 {
-				query[queryString[i]] = v
+		var query map[string][]string
+		if configuration.Method == "ANY" {
+			query = c.Request.URL.Query()
+		} else {
+			query = make(map[string][]string, len(queryString))
+			for i := range queryString {
+				if v := c.Request.URL.Query().Get(queryString[i]); v != "" {
+					query[queryString[i]] = []string{v}
+				}
 			}
 		}
 
 		return &proxy.Request{
 			Method:  c.Request.Method,
+			URL:     c.Request.URL,
 			Query:   query,
+			Path:    c.Request.URL.Path,
 			Body:    c.Request.Body,
 			Params:  params,
 			Headers: headers,
