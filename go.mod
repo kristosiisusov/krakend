@@ -1,4 +1,4 @@
-module github.com/kristosiisusov/krakend/v1
+module github.com/kristosiisusov/krakend/v1.3.1
 
 go 1.13
 
